@@ -3,5 +3,4 @@
 .Rdata
 .httr-oauth
 .DS_Store
-www/Profile Pics/*
 !www/Profile Pics/.gitkeep
