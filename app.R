@@ -1,23 +1,16 @@
 # The Vien Invitational Draft App
 # Author: Bradley Vien
-# Date: 03/02/2024
-# Version: 1.0
-# Differnce from previous versions:
-#   added button functionality
-#   created dynamically generated ui based on user selected number of teams
-#   added summary data from previous years
-#   added more options to the data table output to make it more user friendly
-#   added sidebar panel that scrolls separately from make panel
+# Date: 03/12/2024
+# Version: 2.1
 
 
+library(ggplot2)
+library(RColorBrewer)
 library(dplyr)
 library(purrr)
 library(shiny)
 library(DT)
 library(shinyWidgets)
-
-# ### set global variables
-# current_year <- 2023
 
 ### functions for manipulating data ############################################
 
@@ -46,7 +39,7 @@ add_outcome_counts <- function(
     eagles_fun <- function(x) {
         if(is.na(x)) {x <- NA} else if (x < -1) {x <- TRUE} else {x <- FALSE}
     }
-    bogies_fun <- function(x) {
+    bogeys_fun <- function(x) {
         if(is.na(x)) {x <- NA} else if (x == 1) {x <- TRUE} else {x <- FALSE}
     }
     doubles_fun <- function(x) {
@@ -55,7 +48,7 @@ add_outcome_counts <- function(
     
     
     pars <- apply(score2par, c(1,2), pars_fun)
-    bogies <- apply(score2par, c(1,2), bogies_fun)
+    bogeys <- apply(score2par, c(1,2), bogeys_fun)
     birdies <- apply(score2par, c(1,2), birdies_fun)
     eagles <- apply(score2par, c(1,2), eagles_fun)
     doubles <- apply(score2par, c(1,2), doubles_fun)
@@ -64,11 +57,11 @@ add_outcome_counts <- function(
     Pars <- rowSums(pars)
     Birdies <- rowSums(birdies)
     Eagles <- rowSums(eagles)
-    Bogies <- rowSums(bogies)
+    Bogeys <- rowSums(bogeys)
     Double_And_Up <- rowSums(doubles)
     Double_Pars <- rowSums(double_pars)
     
-    df <- cbind.data.frame(df, Eagles, Birdies, Pars, Bogies, Double_And_Up, Double_Pars)
+    df <- cbind.data.frame(df, Eagles, Birdies, Pars, Bogeys, Double_And_Up, Double_Pars)
     
     return(df)
 }
@@ -101,7 +94,7 @@ averages <- function(all_data, round_digits = 2, cut_year = 2015) {
         dplyr::select(-c("year")) %>% 
         dplyr::group_by(Name) %>%
         dplyr::summarise_all(mean, na.rm = T) %>%
-        dplyr::mutate(dplyr::across(-c("Name"), round, digits = round_digits))
+        dplyr::mutate(dplyr::across(-c("Name"),\(x) round(x, digits = round_digits)))
     colnames(summary_data)[2:ncol(summary_data)] <- 
         paste0(colnames(summary_data)[2:ncol(summary_data)], "_Avg")
     
@@ -112,7 +105,7 @@ averages <- function(all_data, round_digits = 2, cut_year = 2015) {
     
     hole_type_summary <- lapply(3:5, hole_avg, .data = all_data) %>%
         purrr::reduce(full_join, by = "Name") %>%
-        dplyr::mutate(dplyr::across(-c("Name"), round, digits = round_digits))
+        dplyr::mutate(dplyr::across(-c("Name"),\(x) round(x, digits = round_digits)))
     
     averages_df <- list(rounds_played, summary_data, hole_type_summary) %>%
         purrr::reduce(full_join, by = "Name")
@@ -125,6 +118,7 @@ averages <- function(all_data, round_digits = 2, cut_year = 2015) {
 # read in the .csv files, add a year column based upon the file name, and 
 # combine into a dataframe, and then add the outcome counts
 
+# read data from folder in shiny app dir
 df <- paste0("www/data/", base::list.files(pattern = "*.csv", path = "www/data")) %>%
     rlang::set_names(nm = substr(sub(pattern = ".*/", "", .), 1, 4)) %>%
     purrr::map_dfr(read.csv, .id = "year") %>% # read .csv and create year column
@@ -132,16 +126,30 @@ df <- paste0("www/data/", base::list.files(pattern = "*.csv", path = "www/data")
     dplyr::select(-c("In", "Out")) %>%
     add_outcome_counts()
 
-### set global variables
-current_year <- max(df$year)
-
-# setwd("C:/Users/bradl/Desktop/Vien Invitational/Data/Seed Round")
-# df <- base::list.files(pattern = "*.csv") %>%
-#     rlang::set_names(nm = substr(., 1, 4)) %>%
+#### read data using the github api to obtain download urls for the .csv files
+# library(httr)
+# 
+# req <- GET(paste0("https://api.github.com/repos/",
+#                   "bradleyvien/Draft-App-2.0/",
+#                   "contents/",
+#                   "www/data"))
+# stop_for_status(req)
+# 
+# file_names <- unlist(lapply(content(req), "[", "name"))
+# download_urls <- unlist(lapply(content(req), "[", "download_url"))
+# 
+# df <- download_urls %>%
+#     rlang::set_names(nm = substr(file_names, 1, 4)) %>%
 #     purrr::map_dfr(read.csv, .id = "year") %>% # read .csv and create year column
 #     dplyr::mutate(year = as.numeric(year)) %>%
 #     dplyr::select(-c("In", "Out")) %>%
 #     add_outcome_counts()
+# 
+# min_year <- min(df$year)
+# max_year <- max(df$year)
+
+current_year <- max(df$year)
+min_year <- min(df$year)
 
 my_summary_df <- averages(df)
 
@@ -158,6 +166,8 @@ draft_data <- draft_data %>%
     select(-contains(match = "Hole", vars = names(.))) %>%
     select(-year)
 
+player_bios <- read.csv(file = "www/player bios.csv")
+
 ### modules for the shiny app ##################################################
 
 receiver_ui <- function(id, class) {
@@ -173,7 +183,7 @@ receiver_ui <- function(id, class) {
                #              label = NULL,
                #              icon("angle-double-right")),
                actionButton(ns("remove"),
-                            label = "Remove Player",
+                            label = "Remove",
                             icon("angle-left"),
                             style="float:right"),
                # actionButton(ns("remove_all"),
@@ -208,6 +218,7 @@ receiver_server <- function(input, output, session, selected_rows, full_page, bl
         dat <- dat %>% select(c("Name", "Total", "Total_Avg"))
         DT::datatable(dat, 
                       rownames = FALSE, 
+                      selection = "single",
                       options = list(info = FALSE,
                                      paging = FALSE,
                                      searching = FALSE,
@@ -265,21 +276,38 @@ receiver_server <- function(input, output, session, selected_rows, full_page, bl
 ui <- fluidPage(
     tags$head(tags$style(HTML(".odd {background: #DDEBF7;}",
                               ".even {background: #BDD7EE;}",
+                              # ".sep {width: 50vw; height: 1px; float: left;}"
                               ".btn-default {min-width:38.25px;}",
-                              ".row {padding-top: 10px;padding-bottom: 10px;}",
-                              ".dt-button.buttons-columnVisibility {background: black !important;
-                              color: white !important; opacity: 0.5;}",
-                              ".dt-button.buttons-columnVisibility.active {
-                              background: green !important;
-                              color: white !important;
-                              opacity: 1;}"))),
+                              ".row {padding-top: 10px;padding-bottom: 10px;}"
+                              #,
+                              # ".dt-button.buttons-columnVisibility {background: black !important;
+                              # color: white !important; opacity: 0.5;}",
+                              # ".dt-button.buttons-columnVisibility.active {
+                              # background: green !important;
+                              # color: white !important;opacity: 1;},"
+    ))),
     
+    tags$head(
+        tags$style(type = "text/css", "#file_name label{ display: table-cell;
+                            text-align: center; vertical-align: middle; 
+                            padding-top: 10px;padding-bottom: 10px;
+                            padding-left: 10px;padding-right: 10px;} 
+                            #file_name .form-group { display: table-row;}")
+    ),
+    tags$head(
+        tags$style(type = "text/css", "#num_teams label{ display: table-cell;
+                            text-align: center; vertical-align: middle; 
+                            padding-top: 10px;padding-bottom: 10px;
+                            padding-left: 10px;padding-right: 10px;} 
+                            #num_teams .form-group { display: table-row;}")
+    ),
     sidebarLayout(
         position = "right",
         # title = "side bar",
         sidebarPanel(
             width = 3,
             # NOTE::: width is manually set to be less than the allocated 4/12 = .3333
+            # NOTE::: width is manually set to be less than the allocated 3/12 = .25
             style = "height: 95vh; overflow-y: auto;
                      position: fixed; width: 24%;",
             
@@ -296,12 +324,26 @@ ui <- fluidPage(
             
             
             fluidRow(
-                column(width = 6, textInput(inputId = "file_name",
-                                            label = "Draft name:", 
-                                            value = "my draft")),
-                column(width = 6, pickerInput(inputId = "num_teams", 
-                                              label = "Number of teams",
-                                              choices = 2:20)),
+                column(width = 12, 
+                       h2("2024 Vien Invitational Draft"),
+                       tags$div(id = "file_name", 
+                                textInput(inputId = "file_name", 
+                                          label = "Name:",
+                                          value = "my draft",)),
+                       tags$div(id = "num_teams", 
+                                pickerInput(inputId = "num_teams", 
+                                            label = "Number of teams:",
+                                            choices = 2:20))
+                ),
+                
+                
+                
+                # column(width = 6, textInput(inputId = "file_name",
+                #                             label = "Draft name:", 
+                #                             value = "my draft")),
+                # column(width = 6, pickerInput(inputId = "num_teams", 
+                #                               label = "Number of teams",
+                #                               choices = 2:20)),
                 column(width = 12, actionButton("add_table", 
                                                 HTML("<b>Start Draft</b>"),
                                                 style = "background-color: blue;
@@ -325,12 +367,63 @@ ui <- fluidPage(
             fluidRow(
                 column(width = 12, dataTableOutput("source_table")),
             ), 
+            # br(),
+            
             fluidRow(
-                column(width = 6, verbatimTextOutput("handlebars")),
-                column(width = 6, verbatimTextOutput("num_teams"),
+                column(4, imageOutput("profile_pic",
+                                      width = "23vw",
+                                      height = "23vh"),
+                ),
+                column(width = 8,
+                       span(htmlOutput("Player_Info"), style = "font-size: 20px"),
                        br(),
-                       verbatimTextOutput("Teams"))
-            )
+                       tabsetPanel(
+                           type = "tabs",
+                           tabPanel(
+                               title = "Bio",
+                               span(htmlOutput("player_bio"), 
+                                    # style = "color: red"
+                                    style = "font-size: 20px"
+                               )
+                           ),
+                           tabPanel(
+                               title = "Plot Controls",
+                               fluidRow(
+                                   column(12,
+                                          sliderInput(inputId = "slider_years",
+                                                      label = "Date Range",
+                                                      min = min(df$year),
+                                                      max = max(df$year),
+                                                      value = c(2018, max(df$year)),
+                                                      step = 1,
+                                                      ticks = FALSE,
+                                                      sep = ""),
+                                          pickerInput(inputId = "color_palette",
+                                                      label = "Change Color Palette",
+                                                      choices = c("Paired", "RdYlBu", "YlGnBu", "Accent",
+                                                                  "Dark2", "Pastel1", "Pastel2",
+                                                                  "Set1", "Set2", "Set3"),
+                                                      multiple = FALSE,
+                                                      selected = "Paired"
+                                                      # options = pickerOptions(
+                                                      #     dropupAuto = FALSE)
+                                          )
+                                   )
+                               )
+                           ),
+                           tabPanel("Scoring History",
+                                    plotOutput("totals_plot")
+                           ),
+                           tabPanel("Density Plot",
+                                    plotOutput("player_density_plot"))
+                       ), # end tabset panel
+                       fluidRow(
+                           verbatimTextOutput("Teams")
+                           # commented code below is used to assist debugging handlers() logic
+                           # verbatimTextOutput("handlebars")
+                       )
+                ) # end column
+            ) # end fluid row
         )# end main panel
     )# end sidebar layout
     
@@ -399,9 +492,8 @@ server <- function(input, output, session) {
             }) # end lapply
         } # end if
         
-        
-        output$num_teams <- renderPrint(input$add_table)
-        output$handlebars <- renderPrint(handlers())
+        # used to debug handlers logic
+        # output$handlebars <- renderPrint(handlers())
         
     }) # end observe event add_table
     
@@ -432,9 +524,7 @@ server <- function(input, output, session) {
     output$Teams <- renderPrint({
         if (input$add_table > 0) {
             teams_df()
-        } else {"ho"}
-        # input$`row1-sink_table_rows_all`
-        
+        } else {"Teams..."}
     })
     
     output$source_table <- renderDataTable({
@@ -443,15 +533,23 @@ server <- function(input, output, session) {
         DT::datatable(dat, 
                       # caption = 'Players',
                       rownames = FALSE,
+                      selection = "single",
                       extensions = c('FixedColumns', 'Buttons'),
                       options = list(scrollX = TRUE,
                                      autoWidth = TRUE,
                                      # columnDefs = list(list(width = '75px', targets = "_all"))))
                                      columnDefs = list(list(width = '125px', targets = c(0))),
                                      fixedColumns = list(leftColumns = 1),
-                                     dom = 'Bfrtip',
-                                     buttons = list(list(extend = 'colvis', columns = 2:(ncol(dat) - 1)))
-                      ) # end optoins list
+                                     # dom = 'l<"sep">Bfrtip',
+                                     # dom = 'Blfrtip',
+                                     # dom = 'lfrtiBp',
+                                     # dom = "B<'col-sm-12 col-md-4'>lfrtip",
+                                     # dom = "l<'col-sm-4'>Bfrtip",
+                                     dom = "l<'col-sm-4'B>frtip",
+                                     buttons = list(list(extend = 'colvis', columns = 2:(ncol(dat) - 1))),
+                                     lengthMenu = list(c(5, 10, 20, -1),
+                                                       c("5", "10", "20", "All"))
+                      ) # end options list
         ) # end datatable 
     })
     
@@ -460,9 +558,131 @@ server <- function(input, output, session) {
             paste0(name, ".csv")
         },
         content = function(file) {
-            write.csv(teams_df(), file)
+            write.csv(teams_df(), file, row.names = FALSE)
         }
     )
+    
+    ########### player bios ####################################################
+    
+    # profile pic
+    output$profile_pic <- renderImage({
+        
+        # req(input$source_table_rows_selected)
+        # player_name <- selected_rows()$Name
+        player_name <- my_data()$Name[1]
+        if (length(input$source_table_rows_selected)) {
+            player_name <- selected_rows()$Name
+        }
+        
+        filename <- paste0("www/Profile Pics/", player_name, ".JPG")
+        
+        if (!file.exists(filename)) {
+            filename <- "www/Profile Pics/Fleur de Lis.JPG"
+            # filename <- "www/Profile Pics/Default.JPG"
+        }
+        list(src = filename,
+             width = "100%",
+             height = "auto")
+    },
+    deleteFile = FALSE)
+    
+    output$Player_Info <- renderPrint({
+        # req(input$source_table_rows_selected)
+        # player_name <- selected_rows()$Name
+        # if (length(input$source_table_rows_selected)) {
+        #     player_name <- selected_rows()$Name
+        # } else {
+        #     player_name <- my_data()$Name[1]
+        # }
+        
+        player_name <- my_data()$Name[1]
+        if (length(input$source_table_rows_selected)) {
+            player_name <- selected_rows()$Name
+        }
+        
+        player <- player_bios %>% filter(Name == player_name)
+        
+        if (length(player_name)){
+            cat(HTML("<b>Name:</b>"), player$Name, "<br>")
+            cat(HTML("<b>Allias:</b>"), player$Allias, "<br>")
+            cat(HTML("<b>Affiliation:</b>"), player$Affiliation, "<br>")
+        }
+    })
+    
+    output$player_bio <- renderPrint({
+        # req(input$source_table_rows_selected)
+        # player_name <- selected_rows()$Name
+        player_name <- my_data()$Name[1]
+        if (length(input$source_table_rows_selected)) {
+            player_name <- selected_rows()$Name
+        }
+        player <- player_bios %>% filter(Name == player_name)
+        
+        if (length(player_name)){
+            cat("<br>", player$Bio)
+        }
+    })
+    
+    # player plots
+    plot_df <- reactive({
+        # req(input$source_table_rows_selected)
+        # player_name <- selected_rows()$Name
+        player_name <- my_data()$Name[1]
+        if (length(input$source_table_rows_selected)) {
+            player_name <- selected_rows()$Name
+        }
+        # players <- c(player_name, input$player_picker_input)
+        players <- player_name
+        player_totals <- df %>% dplyr::filter(Name %in% players) %>%
+            dplyr::select("Name", "year", "Total")
+        player_totals
+    })
+    
+    output$totals_plot <- renderPlot({
+        # req(input$source_table_rows_selected)
+        plot_df() %>%
+            dplyr::filter(year <= input$slider_years[2]) %>%
+            dplyr::filter(year >= input$slider_years[1]) %>%
+            ggplot(aes(x = factor(year), y = Total, color = Name, group = Name)) +
+            labs(
+                title = paste("Seed Round scores from",
+                              input$slider_years[1],
+                              "-",
+                              input$slider_years[2]),
+                x = "Year",
+                y = "Score"
+            ) +
+            theme(axis.text.x = element_text(angle = 90, vjust = .5)) +
+            geom_line(linewidth = 1.5) +
+            geom_point(shape = 20, size = 5) +
+            scale_color_brewer(palette = input$color_palette)
+        # coord_cartesian(ylim = c(75, 145))
+    })
+    
+    output$player_density_plot <- renderPlot({
+        # req(input$player_data_rows_selected)
+        # player_totals <- plot_df() %>%
+        #     dplyr::filter(year <= input$slider_years[2]) %>%
+        #     dplyr::filter(year >= input$slider_years[1])
+        #
+        # player_density_plot <- ggplot(player_totals, aes(Total, group = Name, fill = Name)) +
+        #     geom_density(adjust = 5, linewidth = 1, alpha = .6) +
+        #     # scale_fill_manual(values = c("red", "blue"))
+        #     # scale_fill_brewer(palette = "YlGnBu") +
+        #     scale_fill_brewer(palette = "RdYlBu") +
+        #     labs(x = "Score", y = "Density")
+        #
+        # player_density_plot
+        plot_df() %>%
+            dplyr::filter(year <= input$slider_years[2]) %>%
+            dplyr::filter(year >= input$slider_years[1]) %>%
+            ggplot(aes(Total, group = Name, fill = Name)) +
+            geom_density(adjust = 5, linewidth = 1, alpha = .6) +
+            # scale_fill_manual(values = c("red", "blue"))
+            # scale_fill_brewer(palette = "YlGnBu") +
+            scale_fill_brewer(palette = input$color_palette) +
+            labs(x = "Score", y = "Density")
+    })
     
 } # end server function
 
