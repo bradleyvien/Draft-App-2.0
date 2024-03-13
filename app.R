@@ -1,7 +1,7 @@
 # The Vien Invitational Draft App
 # Author: Bradley Vien
 # Date: 03/12/2024
-# Version: 2.1
+# Version: 2.2
 
 
 library(ggplot2)
@@ -291,14 +291,14 @@ ui <- fluidPage(
         tags$style(type = "text/css", "#file_name label{ display: table-cell;
                             text-align: center; vertical-align: middle; 
                             padding-top: 10px;padding-bottom: 10px;
-                            padding-left: 10px;padding-right: 10px;} 
+                            padding-right: 10px;} 
                             #file_name .form-group { display: table-row;}")
     ),
     tags$head(
         tags$style(type = "text/css", "#num_teams label{ display: table-cell;
                             text-align: center; vertical-align: middle; 
                             padding-top: 10px;padding-bottom: 10px;
-                            padding-left: 10px;padding-right: 10px;} 
+                            padding-right: 10px;} 
                             #num_teams .form-group { display: table-row;}")
     ),
     sidebarLayout(
@@ -336,14 +336,6 @@ ui <- fluidPage(
                                             choices = 2:20))
                 ),
                 
-                
-                
-                # column(width = 6, textInput(inputId = "file_name",
-                #                             label = "Draft name:", 
-                #                             value = "my draft")),
-                # column(width = 6, pickerInput(inputId = "num_teams", 
-                #                               label = "Number of teams",
-                #                               choices = 2:20)),
                 column(width = 12, actionButton("add_table", 
                                                 HTML("<b>Start Draft</b>"),
                                                 style = "background-color: blue;
@@ -364,18 +356,24 @@ ui <- fluidPage(
         mainPanel(
             width = 9,
             # style = "position:fixed;width:inherit;",
+            
             fluidRow(
-                column(width = 12, dataTableOutput("source_table")),
+                
+                column(width = 4,
+                       h2("2024 Vien Invitational"),
+                       span(htmlOutput("Player_Info"), style = "font-size: 20px"),
+                       imageOutput("profile_pic",
+                                   width = "23vw",
+                                   height = "23vh"),
+                ),
+                column(width = 8, dataTableOutput("source_table")),
             ), 
             # br(),
             
             fluidRow(
-                column(4, imageOutput("profile_pic",
-                                      width = "23vw",
-                                      height = "23vh"),
-                ),
+                
                 column(width = 8,
-                       span(htmlOutput("Player_Info"), style = "font-size: 20px"),
+                       offset = 4,
                        br(),
                        tabsetPanel(
                            type = "tabs",
@@ -547,8 +545,8 @@ server <- function(input, output, session) {
                                      # dom = "l<'col-sm-4'>Bfrtip",
                                      dom = "l<'col-sm-4'B>frtip",
                                      buttons = list(list(extend = 'colvis', columns = 2:(ncol(dat) - 1))),
-                                     lengthMenu = list(c(5, 10, 20, -1),
-                                                       c("5", "10", "20", "All"))
+                                     lengthMenu = list(c(8, 10, 20, -1),
+                                                       c("8", "10", "20", "All"))
                       ) # end options list
         ) # end datatable 
     })
