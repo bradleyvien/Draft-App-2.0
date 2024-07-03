@@ -1,10 +1,8 @@
 # The Vien Invitational Draft App
 # Author: Bradley Vien
 # Date: 03/12/2024
-# Version: 1.3
-# Difference from previous versions:
-# added best and worst total score to data table, reordered column variables in 
-# data table, added player comparison input option for plots
+# Version: 2.2
+
 
 library(ggplot2)
 library(RColorBrewer)
@@ -100,12 +98,6 @@ averages <- function(all_data, round_digits = 2, cut_year = 2015) {
     colnames(summary_data)[2:ncol(summary_data)] <- 
         paste0(colnames(summary_data)[2:ncol(summary_data)], "_Avg")
     
-    min_max_score <- all_data %>%
-        dplyr::filter(year > cut_year) %>%
-        dplyr::select(c("Name", "Total")) %>%
-        dplyr::group_by(Name) %>%
-        dplyr::summarise_all(list(Best_Score = "min", Worst_Score = "max"), na.rm = T)
-    
     rounds_played <- all_data %>% dplyr::select(-c("year")) %>% 
         dplyr::group_by(Name) %>%
         dplyr::summarise(n = n())
@@ -115,7 +107,7 @@ averages <- function(all_data, round_digits = 2, cut_year = 2015) {
         purrr::reduce(full_join, by = "Name") %>%
         dplyr::mutate(dplyr::across(-c("Name"),\(x) round(x, digits = round_digits)))
     
-    averages_df <- list(rounds_played, min_max_score, summary_data, hole_type_summary) %>%
+    averages_df <- list(rounds_played, summary_data, hole_type_summary) %>%
         purrr::reduce(full_join, by = "Name")
     
     averages_df
@@ -173,10 +165,6 @@ draft_data <- draft_data %>%
     left_join(my_summary_df, by = "Name") %>%
     select(-contains(match = "Hole", vars = names(.))) %>%
     select(-year)
-
-draft_data <- draft_data %>%
-    select(contains(match = c("Name","Total", "Rounds", "Score"), vars = colnames(.))) %>%
-    left_join(x = ., y = draft_data)
 
 player_bios <- read.csv(file = "www/player bios.csv")
 
@@ -337,6 +325,7 @@ ui <- fluidPage(
             
             fluidRow(
                 column(width = 12, 
+                       h2("2024 Vien Invitational Draft"),
                        tags$div(id = "file_name", 
                                 textInput(inputId = "file_name", 
                                           label = "Name:",
@@ -416,8 +405,7 @@ ui <- fluidPage(
                                                       selected = "Paired"
                                                       # options = pickerOptions(
                                                       #     dropupAuto = FALSE)
-                                          ),
-                                          uiOutput(outputId = "comp_player")
+                                          )
                                    )
                                )
                            ),
@@ -614,7 +602,7 @@ server <- function(input, output, session) {
         
         if (length(player_name)){
             cat(HTML("<b>Name:</b>"), player$Name, "<br>")
-            cat(HTML("<b>Alias:</b>"), player$Alias, "<br>")
+            cat(HTML("<b>Allias:</b>"), player$Allias, "<br>")
             cat(HTML("<b>Affiliation:</b>"), player$Affiliation, "<br>")
         }
     })
@@ -641,21 +629,11 @@ server <- function(input, output, session) {
         if (length(input$source_table_rows_selected)) {
             player_name <- selected_rows()$Name
         }
-        players <- c(player_name, input$comp_player)
-        # players <- player_name
+        # players <- c(player_name, input$player_picker_input)
+        players <- player_name
         player_totals <- df %>% dplyr::filter(Name %in% players) %>%
             dplyr::select("Name", "year", "Total")
         player_totals
-    })
-    
-    output$comp_player <- renderUI({
-        pickerInput(inputId = "comp_player",
-                    label = "Select Players",
-                    choices = sort(my_data()$Name),
-                    multiple = TRUE,
-                    options = list("max-options" = 6,
-                                   "max-options-text" = "Max Players Reached")
-        )
     })
     
     output$totals_plot <- renderPlot({
