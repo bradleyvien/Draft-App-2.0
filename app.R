@@ -545,8 +545,13 @@ server <- function(input, output, session) {
                                      # dom = "l<'col-sm-4'>Bfrtip",
                                      dom = "l<'col-sm-4'B>frtip",
                                      buttons = list(list(extend = 'colvis', columns = 2:(ncol(dat) - 1))),
+<<<<<<< HEAD
                                      lengthMenu = list(c(5, 8, 10, 20, -1),
                                                        c("5", "8", "10", "20", "All"))
+=======
+                                     lengthMenu = list(c(8, 10, 20, -1),
+                                                       c("8", "10", "20", "All"))
+>>>>>>> 32060c6e54c3b8e740d1823fff1ce4f9bb73aafc
                       ) # end options list
         ) # end datatable 
     })
