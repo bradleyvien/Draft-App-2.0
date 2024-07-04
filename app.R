@@ -504,11 +504,11 @@ server <- function(input, output, session) {
         
     }) # end observe event add_table
     
-    
+
     teams_df <- reactive({
         if (input$add_table > 0) {
             # handlers()$row1$send()
-            
+
             df_list<- lapply(1:n_teams(), function(x){
                 team_name <- paste0("Team_", x)
                 uid <- paste0("row", x)
@@ -516,7 +516,7 @@ server <- function(input, output, session) {
                 colnames(df) <- team_name
                 df
             })
-            
+
             # df_teams <- do.call("cbind.fill", df_list)
             df_teams <- df_list %>%
                 purrr::imap(~setNames(.x, .y)) %>%
@@ -527,12 +527,12 @@ server <- function(input, output, session) {
             df_teams
         }
     })
-    
-    output$Teams <- renderPrint({
-        if (input$add_table > 0) {
-            teams_df()
-        } else {"Teams..."}
-    })
+
+    # output$Teams <- renderPrint({
+    #     if (input$add_table > 0) {
+    #         teams_df()
+    #     } else {"Teams..."}
+    # })
     
     output$source_table <- renderDataTable({
         dat <- my_data()
@@ -554,8 +554,8 @@ server <- function(input, output, session) {
                                      # dom = "l<'col-sm-4'>Bfrtip",
                                      dom = "l<'col-sm-4'B>frtip",
                                      buttons = list(list(extend = 'colvis', columns = 2:(ncol(dat) - 1))),
-                                     lengthMenu = list(c(5, 8, 10, 20, -1),
-                                                       c("5", "8", "10", "20", "All"))
+                                     lengthMenu = list(c(5, 6, 7, 8, 10, 20, -1),
+                                                       c("5","6","7","8","10","20","All"))
                       ) # end options list
         ) # end datatable 
     })
