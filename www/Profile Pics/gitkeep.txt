@@ -1,0 +1,1 @@
+gitkeep file so pictures are not stored on github
