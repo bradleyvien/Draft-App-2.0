@@ -158,6 +158,10 @@ min_year <- min(df$year)
 
 my_summary_df <- averages(df)
 
+player_bios <- read.csv(file = "www/player bios.csv")
+
+tee_boxes <- player_bios %>% select("Name", "Tee")
+
 draft_data <- df %>% filter(year == current_year)
 draft_data <- draft_data %>%
     slice(order(draft_data$Total, draft_data$Hole_16, draft_data$Hole_3,
@@ -173,9 +177,10 @@ draft_data <- draft_data %>%
 
 draft_data <- draft_data %>%
     select(contains(match = c("Name","Total", "Rounds", "Score"), vars = colnames(.))) %>%
-    left_join(x = ., y = draft_data)
+    left_join(x = ., y = draft_data) %>%
+    left_join(x = ., y = tee_boxes)
 
-player_bios <- read.csv(file = "www/player bios.csv")
+
 
 ### modules for the shiny app ##################################################
 
@@ -504,11 +509,11 @@ server <- function(input, output, session) {
         
     }) # end observe event add_table
     
-
+    
     teams_df <- reactive({
         if (input$add_table > 0) {
             # handlers()$row1$send()
-
+            
             df_list<- lapply(1:n_teams(), function(x){
                 team_name <- paste0("Team_", x)
                 uid <- paste0("row", x)
@@ -516,7 +521,7 @@ server <- function(input, output, session) {
                 colnames(df) <- team_name
                 df
             })
-
+            
             # df_teams <- do.call("cbind.fill", df_list)
             df_teams <- df_list %>%
                 purrr::imap(~setNames(.x, .y)) %>%
@@ -527,7 +532,7 @@ server <- function(input, output, session) {
             df_teams
         }
     })
-
+    
     # output$Teams <- renderPrint({
     #     if (input$add_table > 0) {
     #         teams_df()
