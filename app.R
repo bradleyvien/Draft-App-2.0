@@ -435,7 +435,10 @@ ui <- fluidPage(
                            # verbatimTextOutput("handlebars")
                        )
                 ) # end column
-            ) # end fluid row
+            ), # end fluid row
+            fluidRow(
+                p("© 2024 Bradley Vien", align = "center")
+            )
         )# end main panel
     )# end sidebar layout
     
